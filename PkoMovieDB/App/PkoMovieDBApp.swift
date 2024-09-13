@@ -11,7 +11,7 @@ import SwiftUI
 struct PkoMovieDBApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(viewModel: MoviesViewModel())
         }
     }
 }
