@@ -9,16 +9,15 @@ import SwiftUI
 
 struct MoviesListView: View {
     @StateObject var viewModel = MoviesViewModel()
-    @State private var isSearchVisible: Bool = false  // State to manage search bar visibility
+    @State private var isSearchVisible: Bool = false
 
     var body: some View {
         NavigationView {
             VStack {
                 if isSearchVisible {
-                    SearchBar(text: $viewModel.searchText, onSearch: {
-                        viewModel.searchMovies(query: viewModel.searchText)
-                    })
+                    SearchBarView(text: $viewModel.searchText, suggestions: viewModel.searchResults)
                 }
+
                 List {
                     ForEach(viewModel.filteredMovies) { movie in
                         NavigationLink(destination: MovieDetailView(movie: movie)) {
@@ -32,6 +31,10 @@ struct MoviesListView: View {
                         Button(action: {
                             withAnimation {
                                 isSearchVisible.toggle()
+                                viewModel.isSearching = isSearchVisible
+                                if !isSearchVisible {
+                                    viewModel.searchText = ""
+                                }
                             }
                         }) {
                             Image(systemName: "magnifyingglass")
@@ -42,27 +45,6 @@ struct MoviesListView: View {
             .onAppear {
                 viewModel.fetchMovies()
             }
-        }
-    }
-}
-
-struct SearchBar: View {
-    @Binding var text: String
-    var onSearch: () -> Void
-
-    var body: some View {
-        HStack {
-            TextField("Search...", text: $text)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-                .onSubmit {
-                    onSearch()
-                }
-
-            Button(action: onSearch) {
-                Text("Search")
-            }
-            .padding(.trailing)
         }
     }
 }

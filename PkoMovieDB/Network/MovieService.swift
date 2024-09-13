@@ -13,25 +13,65 @@ class MovieService {
     private let baseURL = "https://api.themoviedb.org/3"
 
     func fetchNowPlayingMovies() -> AnyPublisher<[Movie], Error> {
-        let url = URL(string: "\(baseURL)/movie/now_playing")!
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: true)!
-        let queryItems: [URLQueryItem] = [
+        guard var components = URLComponents(string: "\(baseURL)/movie/now_playing") else {
+            return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+        }
+
+        components.queryItems = [
             URLQueryItem(name: "language", value: "pl-PL"),
             URLQueryItem(name: "page", value: "1"),
+            URLQueryItem(name: "api_key", value: apiKey)
         ]
 
-        components.queryItems = components.queryItems.map { $0 + queryItems } ?? queryItems
+        guard let url = components.url else {
+            return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+        }
 
-        var request = URLRequest(url: components.url!)
+        var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = 10
         request.allHTTPHeaderFields = ["accept": "application/json"]
 
         return URLSession.shared.dataTaskPublisher(for: request)
-            .map { $0.data }
+            .map(\.data)
             .decode(type: MovieResponse.self, decoder: JSONDecoder())
-            .map { $0.results }
+            .map(\.results)
             .receive(on: RunLoop.main)
+            .catch { error in
+                Just([]).setFailureType(to: Error.self)
+            }
             .eraseToAnyPublisher()
     }
-}
+
+    func searchMovies(query: String) -> AnyPublisher<[Movie], Error> {
+           guard var components = URLComponents(string: "\(baseURL)/search/movie") else {
+               return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+           }
+
+           components.queryItems = [
+               URLQueryItem(name: "query", value: query),
+               URLQueryItem(name: "language", value: "pl-PL"),
+               URLQueryItem(name: "page", value: "1"),
+               URLQueryItem(name: "api_key", value: apiKey)
+           ]
+
+           guard let url = components.url else {
+               return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+           }
+
+           var request = URLRequest(url: url)
+           request.httpMethod = "GET"
+           request.timeoutInterval = 10
+           request.allHTTPHeaderFields = ["accept": "application/json"]
+
+           return URLSession.shared.dataTaskPublisher(for: request)
+               .map(\.data)
+               .decode(type: MovieResponse.self, decoder: JSONDecoder())
+               .map(\.results)
+               .receive(on: RunLoop.main)
+               .catch { error in
+                   Just([]).setFailureType(to: Error.self)
+               }
+               .eraseToAnyPublisher()
+       }
+   }

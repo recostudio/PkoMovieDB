@@ -9,21 +9,17 @@ import SwiftUI
 
 struct SearchBarView: View {
     @Binding var text: String
-    var onSearch: () -> Void
+    var suggestions: [Movie]
 
     var body: some View {
-        HStack {
-            TextField("Search...", text: $text)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-                .onSubmit {
-                    onSearch()
-                }
-
-            Button(action: onSearch) {
-                Text("Search")
+        VStack(alignment: .leading) {
+            HStack {
+                TextField("Szukaj...", text: $text)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
             }
-            .padding(.trailing)
+            .padding(.top)
+
         }
     }
 }
