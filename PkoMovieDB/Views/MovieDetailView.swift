@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MovieDetailView: View {
     let movie: Movie
+    @ObservedObject var viewModel: MoviesViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -36,5 +37,11 @@ struct MovieDetailView: View {
         }
         .padding()
         .navigationTitle(movie.title)
+        .navigationBarItems(trailing: Button(action: {
+                    viewModel.toggleFavorite(for: movie)
+                }) {
+                    Image(systemName: viewModel.isFavorite(movie: movie) ? "star.fill" : "star")
+                        .foregroundColor(.yellow)
+                })
     }
 }

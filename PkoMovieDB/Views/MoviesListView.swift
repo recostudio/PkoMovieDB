@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct MoviesListView: View {
-    @StateObject var viewModel: MoviesViewModel
+    @ObservedObject var viewModel: MoviesViewModel
     @State private var isSearchVisible: Bool = false
 
     var body: some View {
@@ -20,14 +20,26 @@ struct MoviesListView: View {
                 if viewModel.isLoading {
                     ProgressView("Wczytywanie informacji o filmach...")
                 } else if viewModel.filteredMovies.isEmpty {
-                                   Text("Brak filmów do wyświetlenia.")
-                                       .foregroundColor(.gray)
+                    Text("Brak filmów do wyświetlenia.")
+                        .foregroundColor(.gray)
                     Text("Sprawdź czy wprowadziłeś swój API Key :)")
-                               } else {
+                    Text("Wiem, ładniej byłoby przechować np. Info.plist")
+                        .foregroundColor(.gray)
+                } else {
                     List {
                         ForEach(viewModel.filteredMovies) { movie in
-                            NavigationLink(destination: MovieDetailView(movie: movie)) {
-                                Text(movie.title)
+                            HStack {
+                                Button(action: {
+                                    viewModel.toggleFavorite(for: movie)
+                                }) {
+                                    Image(systemName: viewModel.isFavorite(movie: movie) ? "star.fill" : "star")
+                                        .foregroundColor(.yellow)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
+                                NavigationLink(destination: MovieDetailView(movie: movie, viewModel: viewModel)) {
+                                    Text(movie.title)
+                                }
                             }
                         }
                     }
