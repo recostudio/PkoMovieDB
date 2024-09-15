@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct MoviesListView: View {
-    @StateObject var viewModel = MoviesViewModel()
+    @StateObject var viewModel: MoviesViewModel
     @State private var isSearchVisible: Bool = false
 
     var body: some View {
@@ -17,27 +17,34 @@ struct MoviesListView: View {
                 if isSearchVisible {
                     SearchBarView(text: $viewModel.searchText, suggestions: viewModel.searchResults)
                 }
-
-                List {
-                    ForEach(viewModel.filteredMovies) { movie in
-                        NavigationLink(destination: MovieDetailView(movie: movie)) {
-                            Text(movie.title)
+                if viewModel.isLoading {
+                    ProgressView("Wczytywanie informacji o filmach...")
+                } else if viewModel.filteredMovies.isEmpty {
+                                   Text("Brak filmów do wyświetlenia.")
+                                       .foregroundColor(.gray)
+                    Text("Sprawdź czy wprowadziłeś swój API Key :)")
+                               } else {
+                    List {
+                        ForEach(viewModel.filteredMovies) { movie in
+                            NavigationLink(destination: MovieDetailView(movie: movie)) {
+                                Text(movie.title)
+                            }
                         }
                     }
-                }
-                .navigationBarTitle("Teraz grane:")
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            withAnimation {
-                                isSearchVisible.toggle()
-                                viewModel.isSearching = isSearchVisible
-                                if !isSearchVisible {
-                                    viewModel.searchText = ""
+                    .navigationBarTitle("Teraz grane:")
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button(action: {
+                                withAnimation {
+                                    isSearchVisible.toggle()
+                                    viewModel.isSearching = isSearchVisible
+                                    if !isSearchVisible {
+                                        viewModel.searchText = ""
+                                    }
                                 }
+                            }) {
+                                Image(systemName: "magnifyingglass")
                             }
-                        }) {
-                            Image(systemName: "magnifyingglass")
                         }
                     }
                 }

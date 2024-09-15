@@ -10,15 +10,12 @@ import Combine
 
 class MoviesViewModel: ObservableObject {
     @Published var movies: [Movie] = []
-    @Published var searchText: String = "" {
-        didSet {
-            searchMovies(query: searchText)
-        }
-    }
+    @Published var searchText: String = ""
     @Published var searchResults: [Movie] = []
     @Published var isSearching: Bool = false
+    @Published var isLoading: Bool = false
 
-    private var cancellable: AnyCancellable?
+    private var cancellables = Set<AnyCancellable>()
     private let movieService = MovieService()
 
     var filteredMovies: [Movie] {
@@ -29,12 +26,24 @@ class MoviesViewModel: ObservableObject {
         }
     }
 
+    init() {
+        $searchText
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] query in
+                self?.searchMovies(query: query)
+            }
+            .store(in: &cancellables)
+    }
+
     func fetchMovies() {
-        cancellable = movieService.fetchNowPlayingMovies()
-            .sink(receiveCompletion: { completion in },
-                  receiveValue: { movies in
-                      self.movies = movies
-                  })
+        self.isLoading = true
+        movieService.fetchNowPlayingMovies()
+            .sink(receiveCompletion: { [weak self] completion in
+                self?.isLoading = false
+            }, receiveValue: { [weak self] movies in
+                self?.movies = movies
+            })
+            .store(in: &cancellables)
     }
 
     func searchMovies(query: String) {
@@ -43,24 +52,17 @@ class MoviesViewModel: ObservableObject {
             return
         }
 
-        cancellable = movieService.searchMovies(query: query)
-            .sink(receiveCompletion: { _ in },
-                  receiveValue: { movies in
-                      self.applyRegexFilter(to: movies, query: query)
-                  })
+        movieService.searchMovies(query: query)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] movies in
+                self?.applyFilter(to: movies, query: query)
+            })
+            .store(in: &cancellables)
     }
 
-    private func applyRegexFilter(to movies: [Movie], query: String) {
-        do {
-            let regex = try NSRegularExpression(pattern: query, options: .caseInsensitive)
-            let filtered = movies.filter { movie in
-                let range = NSRange(location: 0, length: movie.title.utf16.count)
-                return regex.firstMatch(in: movie.title, options: [], range: range) != nil
-            }
-            self.searchResults = Array(filtered.prefix(3))
-        } catch {
-            print("Invalid regex: \(error.localizedDescription)")
-            self.searchResults = []
+    private func applyFilter(to movies: [Movie], query: String) {
+        let filtered = movies.filter { movie in
+            movie.title.range(of: query, options: .caseInsensitive) != nil
         }
+        self.searchResults = Array(filtered.prefix(3))
     }
 }
