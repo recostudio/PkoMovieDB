@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct PkoMovieDBApp: App {
+    @StateObject var viewModel = MoviesViewModel()
+
     var body: some Scene {
         WindowGroup {
-            ContentView(viewModel: MoviesViewModel())
+            ContentView()
+                .environmentObject(viewModel)
         }
     }
 }

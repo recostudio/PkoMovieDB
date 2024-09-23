@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject var viewModel: MoviesViewModel
+    @EnvironmentObject var viewModel: MoviesViewModel
 
     var body: some View {
         MoviesListView(viewModel: viewModel)

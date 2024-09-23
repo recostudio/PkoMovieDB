@@ -7,19 +7,32 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 class MoviesViewModel: ObservableObject {
     @Published var movies: [Movie] = []
-    @Published var searchText: String = "" {
-        didSet {
-            searchMovies(query: searchText)
-        }
-    }
+    @Published var searchText: String = ""
     @Published var searchResults: [Movie] = []
     @Published var isSearching: Bool = false
+    @Published var isLoading: Bool = false
+    @AppStorage("favoriteMovieIDs") private var favoriteMovieIDsData: Data = Data()
 
-    private var cancellable: AnyCancellable?
+    private var cancellables = Set<AnyCancellable>()
     private let movieService = MovieService()
+
+    var favoriteMovieIDs: Set<Int> {
+        get {
+            if let ids = try? JSONDecoder().decode(Set<Int>.self, from: favoriteMovieIDsData) {
+                return ids
+            }
+            return []
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                favoriteMovieIDsData = data
+            }
+        }
+    }
 
     var filteredMovies: [Movie] {
         if isSearching && !searchText.isEmpty {
@@ -29,38 +42,55 @@ class MoviesViewModel: ObservableObject {
         }
     }
 
-    func fetchMovies() {
-        cancellable = movieService.fetchNowPlayingMovies()
-            .sink(receiveCompletion: { completion in },
-                  receiveValue: { movies in
-                      self.movies = movies
-                  })
+    init() {
+        $searchText
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] query in
+                self?.searchMovies(query: query)
+            }
+            .store(in: &cancellables)
     }
-
+    // MARK: Fetch movie
+    func fetchMovies() {
+        self.isLoading = true
+        movieService.fetchNowPlayingMovies()
+            .sink(receiveCompletion: { [weak self] completion in
+                self?.isLoading = false
+            }, receiveValue: { [weak self] movies in
+                self?.movies = movies
+            })
+            .store(in: &cancellables)
+    }
+    // MARK: Search movie
     func searchMovies(query: String) {
         guard !query.isEmpty else {
             searchResults = []
             return
         }
 
-        cancellable = movieService.searchMovies(query: query)
-            .sink(receiveCompletion: { _ in },
-                  receiveValue: { movies in
-                      self.applyRegexFilter(to: movies, query: query)
-                  })
+        movieService.searchMovies(query: query)
+            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] movies in
+                self?.applyFilter(to: movies, query: query)
+            })
+            .store(in: &cancellables)
+    }
+    // MARK: Filter movies
+    private func applyFilter(to movies: [Movie], query: String) {
+        let filtered = movies.filter { movie in
+            movie.title.range(of: query, options: .caseInsensitive) != nil
+        }
+        self.searchResults = Array(filtered.prefix(3))
+    }
+    // MARK: Add/remove favorites
+    func toggleFavorite(for movie: Movie) {
+        if favoriteMovieIDs.contains(movie.id) {
+            favoriteMovieIDs.remove(movie.id)
+        } else {
+            favoriteMovieIDs.insert(movie.id)
+        }
     }
 
-    private func applyRegexFilter(to movies: [Movie], query: String) {
-        do {
-            let regex = try NSRegularExpression(pattern: query, options: .caseInsensitive)
-            let filtered = movies.filter { movie in
-                let range = NSRange(location: 0, length: movie.title.utf16.count)
-                return regex.firstMatch(in: movie.title, options: [], range: range) != nil
-            }
-            self.searchResults = Array(filtered.prefix(3))
-        } catch {
-            print("Invalid regex: \(error.localizedDescription)")
-            self.searchResults = []
-        }
+    func isFavorite(movie: Movie) -> Bool {
+        return favoriteMovieIDs.contains(movie.id)
     }
 }
